@@ -1,3 +1,6 @@
+# HUC data for this figure was downloaded from:
+#   https://apps.nationalmap.gov/downloader/
+
 library(ggplot2)
 library(usmap)
 library(sf)
@@ -11,7 +14,24 @@ west <- subset(states, abbr %in% c("NV", "CA", "CO", "ID", "MT", "NM",
                                    "OR", "UT", "WA", "AZ", "WY"))
 
 # get huc 8 regions in area of interest
-huc8_west <- readRDS("data-raw/huc8_west.rds")
+regions <- c("10", "11", "13", "14", "15", "16", "17", "18")
+ws_all <- data.frame()
+for (i in seq_along(regions)) {
+  temp <- sf::st_read(
+    dsn = paste0("data-raw/wbd/huc_geoms/WBD_", regions[i], "_HU2_Shape/Shape"),
+    layer = "WBDHU8"
+  )
+  temp_val <- sf::st_make_valid(temp)
+  temp_sub <- select(temp_val, c(states, huc8, geometry))
+  ws_all <- rbind(ws_all, temp_sub)
+
+}
+# remove duplicates
+huc8 <- ws_all[!duplicated(ws_all[, c("huc8", "geometry")]),]
+huc8_simp <- st_simplify(huc8, dTolerance = 1000)
+huc8_west <- huc8_simp |>
+  filter(str_detect(states, "NV|CA|CO|ID|MT|NM|OR|UT|WA|AZ|WY") == TRUE)
+huc8_west$huc8 <- as.double(huc8_west$huc8)
 
 # get all streamgages kept after association by huc
 peaks_ref <- readRDS("data-raw/modeling/peak_data_sf_FIXED.rds")
@@ -29,7 +49,7 @@ stations <- peaks_ref |>
 
 stations <- stations[, por := 0]
 
-# get lengths of period of records for each unique station
+# get lengths of period of records for each station - takes 10 min to run
 states <- c("NV", "CA", "CO", "ID", "MT", "NM", "OR", "UT", "WA", "AZ", "WY")
 for (x in seq_along(states)) {
   # get all streamflow data

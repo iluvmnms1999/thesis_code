@@ -1,3 +1,7 @@
+# ~ 25 min to run
+# This script calculates SNOTEL summary statistics and creates the final peak
+#   data frame used for modeling.
+
 ## libraries
 library(data.table)
 library(imputeTS)
@@ -6,21 +10,23 @@ library(ggplot2)
 ## make data matrix --------------------------------------------------------
 # peaks data
 states <- c("NV", "CA", "CO", "ID", "MT", "NM", "OR", "UT", "WA", "AZ", "WY")
-peaks_all <- readRDS("data-raw/ros_class/huc_match/melt_snotel/ge1snotel/add_base_med/ms_baseref_ALL.RDS")
+peaks_all <- readRDS(paste0("data-raw/ros_class/ms_baseref_ALL.RDS"))
+
 # get date from datetime
 peaks_all[, date := as.Date(dt)]
 # get dates of all peaks to look at snotel measurements for
 dates <- peaks_all[, .(date, huc)]
 
 # snotel data
-snotel_all <- readRDS("data-raw/snotel/huc_melt_elev/snotel_hucmeltelev_ALL.RDS")
+snotel_all <- readRDS(paste0("data-raw/snotel/snotel_hucmeltelev_ALL.RDS"))
 
-# take median of snotel conditions for previous five days for each date/huc
+# take median of snotel conditions for five days prior to peak occurrence for
+# each date/huc
 data_agg <- data.frame()
 for (i in seq_len(nrow(dates))) {
   temp <- snotel_all[huc == dates$huc[i]]
   temp <- temp[date %in% seq(dates$date[i] - 5,
-                                   dates$date[i] - 1, by = "day")]
+                             dates$date[i] - 1, by = "day")]
   all_vars <- temp[, .(temp_degc_av = mean(temp_degc, na.rm = TRUE),
                        temp_degc_med = median(temp_degc, na.rm = TRUE),
                        temp_degc_min = min(temp_degc, na.rm = TRUE),
@@ -54,10 +60,11 @@ for (i in seq_len(nrow(dates))) {
                        elev_med = median(elev, na.rm = TRUE),
                        elev_min = min(elev, na.rm = TRUE),
                        elev_max = max(elev, na.rm = TRUE)
-                       ), by = id]
+  ), by = id]
 
   vars_sum <- sapply(all_vars[, -1], median)
-  data_agg <- rbind(data_agg, c(as.numeric(dates$date[i]), dates$huc[i], vars_sum))
+  data_agg <- rbind(data_agg, c(as.numeric(dates$date[i]), dates$huc[i],
+                                vars_sum))
 }
 
 # reset names and convert dates back to dates, replace Inf with NA
@@ -86,15 +93,15 @@ huc_soilmp <- snotel_all[, .(total = .N,
                          by = huc]#[eight == 0 & twenty == 0]
 
 # connect smp findings to peaks
-peaks_sel <- peaks_all[, ":="(smp = ifelse(huc %in% huc_soilmp$huc[which(huc_soilmp$eight_perc == 0
-                                                                         & huc_soilmp$twenty_perc == 0)],
-                                           0, 1),
-                              mult = peakflow / base_med)][base_med > 0]
+peaks_sel <- peaks_all[, ":="(smp = ifelse(
+  huc %in% huc_soilmp$huc[which(huc_soilmp$eight_perc == 0
+                                & huc_soilmp$twenty_perc == 0)], 0, 1),
+  mult = peakflow / base_med)][base_med > 0]
 
 # join snotel and peaks by huc and date
 snotel_smp <- readRDS("data-raw/modeling/snotel_av_med_FIXED.rds")
 
-peak_data_dt <- dplyr::left_join(peaks_sel, snotel_smp, by = c("date", "huc"),
+peak_data_dt <- dplyr::left_join(peaks_sel, data_agg, by = c("date", "huc"),
                                  multiple = "any")
 # final adjustments
 peak_data_dt[, ros_num := ifelse(ros == "ros", 1, 0)]
@@ -104,14 +111,16 @@ usgs <- readRDS("data-raw/usgs_fs/usgs_huc.RDS")
 colnames(usgs)[2] <- "id"
 peak_data_dt$id <- as.integer(peak_data_dt$id)
 
-peak_data_fin <- dplyr::left_join(peak_data_dt, usgs[, .(id, dec_lat_va, dec_long_va)],
+peak_data_fin <- dplyr::left_join(peak_data_dt, usgs[, .(id, dec_lat_va,
+                                                         dec_long_va)],
                                   by = dplyr::join_by(id))
 
 # assign each id to random number between 1 and 10 for cv purposes
+#   these groupings will very slightly since they are randomly assigned and no
+#   seed was set for the original dataset
 cv <- data.frame(id = unique(peak_data_fin$id),
                  cv = sample(1:10, length(unique(peak_data_fin$id)),
                              replace = TRUE))
-
 peaks_cv <- dplyr::left_join(peak_data_fin, cv, by = "id")
 
 # add huc 4 var
@@ -121,7 +130,7 @@ peaks_cv$huc4 <- substr(peaks_cv$huc, 1, 4)
 ws <- readRDS("data-raw/wbd/ws_huc4_geom.rds")
 peaks_sf <- sf::st_as_sf(peaks_cv, coords = c("dec_long_va", "dec_lat_va"),
                          crs = sf::st_crs(ws)) |>
-  dplyr::mutate(lon = sf::st_coordinates(geometry)[,1],
-                lat = sf::st_coordinates(geometry)[,2])
+  dplyr::mutate(lon = sf::st_coordinates(geometry)[, 1],
+                lat = sf::st_coordinates(geometry)[, 2])
 
 saveRDS(peaks_sf, "data-raw/modeling/peak_data_sf_FIXED.rds")
