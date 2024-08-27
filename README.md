@@ -59,3 +59,22 @@ Full reproducibility requires running the `.R` files in the `scripts` folder in 
 
 All `.R` files in the `figures` folder are self-contained and reproducible provided that the user has downloaded all necessary R packages and has opened an RStudio IDE session using the `.Rproj` file available in the main project folder.
 
+---
+
+## References
+
+**SNOTEL data:**
+- NWCC, 2024. Report Generator: Air & Water Database Report Generator. 
+    National Water and Climate Center — Natural Resources Conservation 
+    Service. https://wcc.sc.egov.usda.gov/reportGenerator/. Report Generator 
+    version 2.0.
+
+**Streamflow data:**
+- USGS, 2023. U.S. Geological Survey. https://waterdata.usgs.gov/.
+
+**WBD data:**
+- USGS, 2024. The National Map Downloader. U.S. Geological Survey.
+    https://apps.nationalmap.gov/downloader/
+- NRCS, 2024. Geo Spatial Data Gateway. U.S. Department of Agriculture.
+    https://datagateway.nrcs.usda.gov/GDGOrder.aspx?order=QuickState.
+
