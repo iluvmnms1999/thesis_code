@@ -40,6 +40,7 @@ snotel_sf$nudge_x[snotel_sf$id == "1242"] <- .05
 
 png("figures/ch2/output_fig/fig2_11.png", height = 5, width = 9, units = "in",
     res = 600)
+# save your own Google API key to the data-raw folder and upload
 google_API_key <- scan(paste0(getwd(), "/data-raw/google_api.txt"), what = "")
 register_google(key = google_API_key)
 

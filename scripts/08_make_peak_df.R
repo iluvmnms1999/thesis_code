@@ -127,7 +127,7 @@ peaks_cv <- dplyr::left_join(peak_data_fin, cv, by = "id")
 peaks_cv$huc4 <- substr(peaks_cv$huc, 1, 4)
 
 # make geometries
-ws <- readRDS("data-raw/wbd/ws_huc4_geom.rds")
+ws <- readRDS("data-raw/wbd/ws_huc8_geom.rds")
 peaks_sf <- sf::st_as_sf(peaks_cv, coords = c("dec_long_va", "dec_lat_va"),
                          crs = sf::st_crs(ws)) |>
   dplyr::mutate(lon = sf::st_coordinates(geometry)[, 1],
